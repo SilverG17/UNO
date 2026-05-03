@@ -52,7 +52,6 @@ public class GameManager
     }
 
     // ================= PUBLIC ACTIONS =================
-
     public bool PlayCard(string playerId, Card card)
     {
         if (GuardGameOver()) return false;
@@ -96,6 +95,11 @@ public class GameManager
 
         Broadcast();
         return true;
+    }
+
+    public bool IsPlayerTurn(string playerId)
+    {
+        return turnManager.IsPlayerTurn(playerId);
     }
 
     public void DrawCard(string playerId)
@@ -217,5 +221,10 @@ public class GameManager
             return true;
         }
         return false;
+    }
+
+    public GameState GetState()
+    {
+        return state;
     }
 }

@@ -1,32 +1,33 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Linq;
 
 public class ServerNetworkManager
 {
     private TcpListener server;
     private List<TcpClient> clients = new();
-
-    private MessageManager messageManager;
+    private ServerMessageHandler messageHandler;
     private RoomManager roomManager = new();
 
     // mapping
-    private Dictionary<TcpClient, string> clientPlayers = new();
-    private Dictionary<string, TcpClient> playerToClient = new(); // 🔥 FIX O(n²)
-    private Dictionary<TcpClient, string> clientRooms = new();
+    private ConcurrentDictionary<TcpClient, string> clientPlayers = new();
+    private ConcurrentDictionary<string, TcpClient> playerToClient = new();
+    private ConcurrentDictionary<TcpClient, string> clientRooms = new();
 
     private bool isRunning = false;
 
     // ================= INIT =================
-
     public ServerNetworkManager(int port = 7777)
     {
-        this.messageManager = new MessageManager(
+        messageHandler = new ServerMessageHandler(
             roomManager,
             clientPlayers,
+            playerToClient,
             clientRooms,
             SendToClient,
             SendToRoom
@@ -36,7 +37,6 @@ public class ServerNetworkManager
     }
 
     // ================= START =================
-
     public void Start()
     {
         server.Start();
@@ -49,27 +49,32 @@ public class ServerNetworkManager
     }
 
     // ================= ACCEPT CLIENT =================
-
     private void AcceptClients()
     {
         while (isRunning)
         {
-            TcpClient client = server.AcceptTcpClient();
-
-            lock (clients)
+            try
             {
-                clients.Add(client);
+                TcpClient client = server.AcceptTcpClient();
+
+                lock (clients)
+                {
+                    clients.Add(client);
+                }
+
+                Console.WriteLine("Client connected");
+
+                Thread clientThread = new Thread(() => HandleClient(client));
+                clientThread.Start();
             }
-
-            Console.WriteLine("Client connected");
-
-            Thread clientThread = new Thread(() => HandleClient(client));
-            clientThread.Start();
+            catch
+            {
+                if (!isRunning) break;
+            }
         }
     }
 
     // ================= HANDLE CLIENT =================
-
     private void HandleClient(TcpClient client)
     {
         NetworkStream stream = client.GetStream();
@@ -95,8 +100,7 @@ public class ServerNetworkManager
                     string message = content.Substring(0, index);
                     sb.Remove(0, index + 1);
 
-                    // ✅ KHÔNG lock toàn bộ server nữa
-                    messageManager.HandleMessage(client, message);
+                    messageHandler.HandleMessage(client, message);
                 }
             }
         }
@@ -118,8 +122,8 @@ public class ServerNetworkManager
 
         if (clientPlayers.TryGetValue(client, out var playerId))
         {
-            clientPlayers.Remove(client);
-            playerToClient.Remove(playerId); // 🔥 FIX leak
+            clientPlayers.TryRemove(client, out _);
+            playerToClient.TryRemove(playerId, out _);
 
             // remove khỏi room
             if (clientRooms.TryGetValue(client, out var roomId))
@@ -127,7 +131,14 @@ public class ServerNetworkManager
                 var room = roomManager.GetRoom(roomId);
                 room?.RemovePlayer(playerId);
 
-                clientRooms.Remove(client);
+                clientRooms.TryRemove(client, out _);
+                if (roomId != null)
+                {
+                    SendToRoom(roomId, Protocol.CreateMessage(
+                        Protocol.PLAYER_LEFT,
+                        new { playerId = playerId }
+                    ));
+                }
             }
         }
 
@@ -164,13 +175,15 @@ public class ServerNetworkManager
     {
         try
         {
+            if (!client.Connected)
+                return;
             var stream = client.GetStream();
             var data = Encoding.UTF8.GetBytes(message + "\n");
             stream.Write(data, 0, data.Length);
         }
         catch
         {
-            DisconnectClient(client);
+            // ignore send error (client might have disconnected)
         }
     }
 
@@ -179,7 +192,9 @@ public class ServerNetworkManager
         var room = roomManager.GetRoom(roomId);
         if (room == null) return;
 
-        foreach (var playerId in room.PlayerIds)
+        var playersSnapshot = room.PlayerIds.ToList();
+
+        foreach (var playerId in playersSnapshot)
         {
             if (playerToClient.TryGetValue(playerId, out var client))
             {
@@ -193,12 +208,12 @@ public class ServerNetworkManager
 
     public void BindPlayer(TcpClient client, string playerId)
     {
-        clientPlayers[client] = playerId;
-        playerToClient[playerId] = client;
+        clientPlayers.AddOrUpdate(client, playerId, (_, _) => playerId);
+        playerToClient.AddOrUpdate(playerId, client, (_, _) => client);
     }
 
     public void BindRoom(TcpClient client, string roomId)
     {
-        clientRooms[client] = roomId;
+        clientRooms.AddOrUpdate(client, roomId, (_, _) => roomId);
     }
 }

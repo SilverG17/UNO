@@ -13,6 +13,15 @@ public static class Protocol
     public const string ERROR = "Error";
     public const string PLAYER_LEFT = "PlayerLeft";
 
+    // ================= WRAPPER =================
+
+    [Serializable]
+    public class Wrapper
+    {
+        public string type;
+        public string payload;
+    }
+
     // ================= SERIALIZATION =================
 
     public static string ToJson(object obj)
@@ -42,11 +51,4 @@ public static class Protocol
     {
         return JsonUtility.FromJson<Wrapper>(json);
     }
-}
-
-[Serializable]
-public class Wrapper
-{
-    public string type;
-    public string payload; 
 }
