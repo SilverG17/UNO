@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Linq;
+using UnityEngine;
 
 public class ServerNetworkManager
 {
@@ -42,7 +43,8 @@ public class ServerNetworkManager
         server.Start();
         isRunning = true;
 
-        Console.WriteLine("Server started...");
+        Debug.Log("[SERVER] STARTING SERVER...");
+        Debug.Log($"[SERVER] Listening on port {7777}");
 
         Thread acceptThread = new Thread(AcceptClients);
         acceptThread.Start();
@@ -55,17 +57,18 @@ public class ServerNetworkManager
         {
             try
             {
+                Debug.Log("[SERVER] Waiting for client...");
                 TcpClient client = server.AcceptTcpClient();
+                Debug.Log("[SERVER] CLIENT CONNECTED FROM: " + client.Client.RemoteEndPoint);
 
                 lock (clients)
                 {
                     clients.Add(client);
                 }
 
-                Console.WriteLine("Client connected");
-
                 Thread clientThread = new Thread(() => HandleClient(client));
                 clientThread.Start();
+                Debug.Log("[SERVER] Client thread started");
             }
             catch
             {
@@ -77,6 +80,7 @@ public class ServerNetworkManager
     // ================= HANDLE CLIENT =================
     private void HandleClient(TcpClient client)
     {
+        Debug.Log("[SERVER] HANDLE CLIENT START: " + client.Client.RemoteEndPoint);
         NetworkStream stream = client.GetStream();
         byte[] buffer = new byte[4096];
         StringBuilder sb = new StringBuilder();
@@ -85,11 +89,13 @@ public class ServerNetworkManager
         {
             while (isRunning && client.Connected)
             {
+                Debug.Log("[SERVER] Waiting data from client...");
                 int bytesRead = stream.Read(buffer, 0, buffer.Length);
+                Debug.Log("[SERVER] BYTES RECEIVED: " + bytesRead);
                 if (bytesRead <= 0) break;
 
                 sb.Append(Encoding.UTF8.GetString(buffer, 0, bytesRead));
-
+                Debug.Log("[SERVER] RAW MESSAGE BUFFER: " + sb.ToString());
                 while (true)
                 {
                     string content = sb.ToString();
@@ -106,7 +112,7 @@ public class ServerNetworkManager
         }
         catch (Exception e)
         {
-            Console.WriteLine("Client error: " + e.Message);
+            Debug.Log("Client error: " + e.Message);
         }
         finally
         {
@@ -118,7 +124,7 @@ public class ServerNetworkManager
 
     private void DisconnectClient(TcpClient client)
     {
-        Console.WriteLine("Client disconnected");
+        Debug.Log("[SERVER] DISCONNECT CLIENT: " + client.Client.RemoteEndPoint);
 
         if (clientPlayers.TryGetValue(client, out var playerId))
         {
@@ -146,7 +152,7 @@ public class ServerNetworkManager
         {
             clients.Remove(client);
         }
-
+        Debug.Log("[SERVER] Client removed from list");
         client.Close();
     }
 
@@ -166,13 +172,14 @@ public class ServerNetworkManager
             clients.Clear();
         }
 
-        Console.WriteLine("Server stopped");
+        Debug.Log("Server stopped");
     }
 
     // ================= SEND =================
 
     private void SendToClient(TcpClient client, string message)
     {
+        Debug.Log("[SERVER] SEND TO CLIENT: " + message);
         try
         {
             if (!client.Connected)
@@ -193,6 +200,7 @@ public class ServerNetworkManager
         if (room == null) return;
 
         var playersSnapshot = room.PlayerIds.ToList();
+        Debug.Log($"[SERVER] SEND TO ROOM {roomId}, PLAYERS: {playersSnapshot.Count}");
 
         foreach (var playerId in playersSnapshot)
         {
