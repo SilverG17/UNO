@@ -73,3 +73,25 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# Nested Unity projects in this repo
+UNO-Client/[Ll]ibrary/
+UNO-Client/[Tt]emp/
+UNO-Client/[Ll]ogs/
+UNO-Client/[Oo]bj/
+UNO-Client/[Bb]uild/
+UNO-Client/[Bb]uilds/
+UNO-Client/[Uu]ser[Ss]ettings/
+UNO-Client/*.csproj
+UNO-Client/*.sln
+UNO-Client/*.log
+UNO-Sever/[Ll]ibrary/
+UNO-Sever/[Tt]emp/
+UNO-Sever/[Ll]ogs/
+UNO-Sever/[Oo]bj/
+UNO-Sever/[Bb]uild/
+UNO-Sever/[Bb]uilds/
+UNO-Sever/[Uu]ser[Ss]ettings/
+UNO-Sever/*.csproj
+UNO-Sever/*.sln
+UNO-Sever/*.log

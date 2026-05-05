@@ -17,12 +17,17 @@ public class ClientNetworkManager : MonoBehaviour
     public Action<string> OnMessageReceived;
     public Action OnConnected;
     public Action OnDisconnected;
-
+    public bool IsConnected => client != null && client.Connected;
     // ================= CONNECT =================
     public void Connect(string host, int port)
     {
         try
         {
+            if (IsConnected)
+            {
+                Debug.Log("[CLIENT] ALREADY CONNECTED");
+                return;
+            }
             Debug.Log($"[CLIENT] CONNECTING TO {host}:{port}");
 
             client = new TcpClient();
