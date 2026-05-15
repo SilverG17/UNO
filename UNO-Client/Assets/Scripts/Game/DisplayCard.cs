@@ -3,24 +3,34 @@ using UnityEngine.UI;
 
 public class DisplayCard : MonoBehaviour
 {
-    public int displayCardID;
+    [SerializeField] private int displayCardID;
+    [SerializeField] private Image cardImage;
 
-    public int id;
-    public string color;
-    public int value;
-    public Sprite cardSprite;
+    private Card card;
 
-    public Image cardImage;
+    public Card Card => card;
 
     void Start()
     {
-        Card card = CardList.cardList[displayCardID];
+        SetCard(displayCardID);
+    }
 
-        id = card.id;
-        color = card.color;
-        value = card.value;
-        cardSprite = card.cardSprite;
+    public void SetCard(int cardId)
+    {
+        card = CardList.GetById(cardId);
 
-        cardImage.sprite = cardSprite;
+        if (card == null)
+        {
+            Debug.LogWarning($"[DisplayCard] Card ID {cardId} not found");
+            return;
+        }
+
+        displayCardID = cardId;
+
+        if (cardImage != null && card.sprite != null)
+        {
+            cardImage.sprite = card.sprite;
+            cardImage.preserveAspect = true;
+        }
     }
 }
